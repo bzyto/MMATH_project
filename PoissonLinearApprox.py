@@ -102,11 +102,7 @@ class PoissonSolver:
                     LHS[int(ConnectivityMatrix[k][i])][int(ConnectivityMatrix[k][j])]+=ElementMatrix[k][i][j]
                 RHS[int(ConnectivityMatrix[k][j])]+=ElementRHS[j][k]
         ## at this point, the galerkin matrix is of size n by n where n is the total number of vertices
-        ## we have to write the boundary conditions into the system
-        # n = int(np.sqrt(matrixSize))
-        # cutoff = lambda x: 4+ (x-3)*2 #per my on-paper calculations
-        # LHS = LHS[cutoff(n):-cutoff(n), cutoff(n):-cutoff(n)]
-        # RHS = RHS[cutoff(n):-cutoff(n)]
+        ## we have enforce the boundary conditions on the system
         for i in range(matrixSize):
             if self.mesh.vertices[i].boundary:
                 LHS[i, :] = 0
@@ -221,9 +217,11 @@ def to_matrix(arr):
     
     return mat
 def main():
-    mesh = generateMesh_UnitSquare(0.1)
+    start = time.time()
+    mesh = generateMesh_UnitSquare(0.01)
     solution = PoissonSolver(mesh, 1)
-    solution.plot_triangle()
+    print(solution.solve()[100*50])
+    print(f"Took {start-time.time()} seconds")
 
 if __name__ == "__main__":
     main()

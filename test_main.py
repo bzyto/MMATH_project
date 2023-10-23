@@ -1,4 +1,4 @@
-from main import *
+from PoissonLinearApprox import *
 def test_area():
     assert Triangle(np.array([[0,0],[1,0],[0,1]]), [0, 1, 2]).area() == 0.5
 def test_UnitMeshHalf_NumberVertices():
