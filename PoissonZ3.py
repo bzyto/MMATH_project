@@ -12,6 +12,7 @@ class Triangle:
         self.vertices = vertices
         self.GlobalNumber = GlobalNumber
         self.VertexNumbers = rearange_vertices(VertexNumbers)
+        self.VertexNumbers.append(-self.GlobalNumber-1)## COM vertex
     def area(self):
         return 0.5 * np.abs(np.cross(self.x_1 - self.x_0, self.x_2 - self.x_0))
     def __str__(self):
@@ -94,7 +95,7 @@ class PoissonZ3Solver:
     def __init__(self, mesh, bc=0):
         self.mesh = mesh
         self.bc = bc
-    def IntegrationMatrixLHS(self):
+    def ElementIntegrationLHS(self):
         # x = sp.Symbol('x')
         # y = sp.Symbol("y")
         # symb_vec =np.array([1, x, y, x**2, y**2, x*y, x**3, y**3, x**2*y, x*y**2])
@@ -130,6 +131,31 @@ class PoissonZ3Solver:
                     else:
                         ElementMatrix[k][i][j] = ElementMatrix[k][j][i]
         return ElementMatrix
+    def ElementIntegrationRHS(self):
+        power_vec =[[0,0], [1, 0], [0, 1], [2, 0], [0,2], [1, 1], [3, 0], [0,3], [2, 1], [1,2]]
+        n_triangles = len(self.mesh.triangles)
+        ElementVector = np.zeros((n_triangles, 10))
+        for n in range(n_triangles):
+                c = self.mesh.triangles[n].LocalCubic() #coefficient matrix
+                for i in range(10):
+                    for j in range(10):
+                        f = lambda x,y: x**(power_vec[j][0])*y**(power_vec[j][1])
+                        if n%2==0:##upward oriented
+                            val = integrate.dblquad(f, self.mesh.triangles[n].x_2[0], self.mesh.triangles[n].x_2[0]+self.mesh.h,
+                                                                                lambda x: x-self.mesh.triangles[n].x_2[0]+self.mesh.triangles[n].x_2[1]-self.mesh.h, self.mesh.triangles[n].x_2[1])[0]
+                            ElementVector[n][i]+=val*c[i][j]
+                        else:##downward oriented
+                            ElementVector[n][i]+=c[i][j]*integrate.dblquad(f, self.mesh.triangles[n].x_0[0]-self.mesh.h, self.mesh.triangles[n].x_0[0],
+                                                                            self.mesh.triangles[n].x_0[1],lambda x: x-self.mesh.triangles[n].x_0[0]+self.mesh.triangles[n].x_0[1]+self.mesh.h)[0]
+        return ElementVector
+    def Assembly(self):
+        ElementMatrix = self.ElementIntegrationLHS()
+        ElementVector = self.ElementIntegrationRHS()
+        ConnectivityMatrix = self.mesh.ConnectivityMatrix()
+        matrixSize = int(len(self.mesh.vertices))
+        LHS = np.zeros((matrixSize, matrixSize))
+        RHS = np.zeros(matrixSize)
+
 def generateMesh_UnitSquare(h = 0.2):
     x = y = np.linspace(0, 1, int(1/h)+1)
     x_grid, y_grid = np.meshgrid(x, y)
@@ -161,9 +187,11 @@ def generateMesh_UnitSquare(h = 0.2):
     vertices = vertices.reshape((len(x)*len(y)))
     return Mesh(vertices, triangles, h)
 def main():
-    mesh = generateMesh_UnitSquare(0.25)
+    mesh = generateMesh_UnitSquare(0.1)
     soln = PoissonZ3Solver(mesh)
     #soln.IntegrationMatrixLHS()
-    print(mesh.triangles[2].VertexNumbers)
+    #soln.ElementIntegrationRHS()
+    cm = mesh.ConnectivityMatrix()
+    np.savetxt('matrix.txt', cm)
 if __name__=="__main__":
     main()
