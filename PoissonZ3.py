@@ -11,12 +11,12 @@ class Triangle:
         self.x_2 = np.array(vertices[2])
         self.vertices = vertices
         self.GlobalNumber = GlobalNumber
-        self.VertexNumbers = rearange_vertices(VertexNumbers)
-        self.VertexNumbers.append(-self.GlobalNumber-1)## COM vertex
+        self.VertexNumbers = VertexNumbers
+
     def area(self):
         return 0.5 * np.abs(np.cross(self.x_1 - self.x_0, self.x_2 - self.x_0))
     def __str__(self):
-        return "Triangle with vertices \n" + str(self.x_0) + "\n" + str(self.x_1) + "\n" + str(self.x_2) + "\n And global number " + str(self.GlobalNumber)
+        return "Triangle with vertices \n" + str(self.x_0) + "\n" + str(self.x_1) + "\n" + str(self.x_2) + "\n And global number " + str(self.GlobalNumber) + "\n and vertices numbers:"+str(self.VertexNumbers)
     def COM(self):
         ##centre of mass
         x_coord = (1/3)*(self.x_0[0]+self.x_1[0]+self.x_2[0])
@@ -152,15 +152,27 @@ class PoissonZ3Solver:
         ElementMatrix = self.ElementIntegrationLHS()
         ElementVector = self.ElementIntegrationRHS()
         ConnectivityMatrix = self.mesh.ConnectivityMatrix()
-        matrixSize = int(len(self.mesh.vertices))
+        matrixSize = int(np.size(self.mesh.vertices)+np.size(self.mesh.triangles)+1)
         LHS = np.zeros((matrixSize, matrixSize))
         RHS = np.zeros(matrixSize)
-
+        ## loop as in https://eprints.maths.manchester.ac.uk/894/2/0-19-852868-X.pdf p.26
+        for k in range(len(ConnectivityMatrix)):
+            for j in range(10):
+                for i in range(10):
+                    LHS[int(ConnectivityMatrix[k][i])][int(ConnectivityMatrix[k][j])]+=ElementMatrix[k][i][j]
+                RHS[int(ConnectivityMatrix[k][j])]+=ElementVector[k][j]
+        ## at this point, the galerkin matrix is of size n by n where n is the total number of vertices
+        ## we have enforce the boundary conditions on the system
+        for i in range(matrixSize-np.size(self.mesh.triangles)):
+            print(self.mesh.vertices[i])
+        return LHS, RHS            
 def generateMesh_UnitSquare(h = 0.2):
     x = y = np.linspace(0, 1, int(1/h)+1)
     x_grid, y_grid = np.meshgrid(x, y)
     vertices = []
     triangles = []
+    x_vertices = []
+    y_vertices = []
     loopcounter = 0
     for i in range(len(x_grid)):
         for j in range(len(x_grid)):
@@ -168,9 +180,16 @@ def generateMesh_UnitSquare(h = 0.2):
             if x_grid[i][j] == 0 or x_grid[i][j] == 1 or y_grid[i][j] == 0 or y_grid[i][j] == 1:
                 boundary = True
             vertices.append(Vertex([x_grid[i][j], y_grid[i][j]], loopcounter, boundary))
-            loopcounter+=1
+            x_vertices.append(Vertex([x_grid[i][j], y_grid[i][j]], loopcounter+1, boundary))
+            y_vertices.append(Vertex([x_grid[i][j], y_grid[i][j]], loopcounter+2, boundary))
+            loopcounter+=3
+    total_number_of_vertices = loopcounter
     vertices = np.array(vertices)
     vertices = vertices.reshape(len(x), len(y))
+    x_vertices = np.array(x_vertices)
+    x_vertices = x_vertices.reshape(len(x), len(y))
+    y_vertices = np.array(y_vertices)
+    y_vertices = y_vertices.reshape(len(x), len(y))
     loopcounter = 0
     for i in range(len(x)-1):
         for j in range(len(y)-1):
@@ -181,17 +200,26 @@ def generateMesh_UnitSquare(h = 0.2):
             v2 = vertices[i+1][j]
             v3 = vertices[i+1][j+1]
             v4 = vertices[i][j+1]
-            triangles.append(Triangle([v1.coordinates, v3.coordinates, v2.coordinates], [v1.global_number, v3.global_number, v2.global_number], loopcounter)) ##lower triangle
-            triangles.append(Triangle([v4.coordinates, v3.coordinates, v1.coordinates], [v4.global_number, v3.global_number, v1.global_number], loopcounter+1)) ## upper triangle
+            v1_x = x_vertices[i][j]
+            v2_x = x_vertices[i+1][j]
+            v3_x = x_vertices[i+1][j+1]
+            v4_x = x_vertices[i][j+1]
+            v1_y = y_vertices[i][j]
+            v2_y = y_vertices[i+1][j]
+            v3_y = y_vertices[i+1][j+1]
+            v4_y = y_vertices[i][j+1]
+            triangles.append(Triangle([v1.coordinates, v2.coordinates, v3.coordinates], [v1.global_number, v1_x.global_number, v1_y.global_number, v2.global_number, v2_x.global_number, v2_y.global_number,
+                                                                                          v3.global_number, v3_x.global_number, v3_y.global_number, total_number_of_vertices+loopcounter+1], loopcounter)) ##lower triangle
+            triangles.append(Triangle([v4.coordinates, v1.coordinates, v3.coordinates], [v4.global_number, v4_x.global_number, v4_y.global_number, v1.global_number, v1_x.global_number, v1_y.global_number,
+                                                                                          v3.global_number, v3_x.global_number, v3_y.global_number, total_number_of_vertices+loopcounter+2], loopcounter+1)) ##upper triangle
             loopcounter+=2
-    vertices = vertices.reshape((len(x)*len(y)))
+    vertices = np.concatenate([vertices, x_vertices, y_vertices])
+    print(vertices)
+    vertices.flatten()
     return Mesh(vertices, triangles, h)
 def main():
-    mesh = generateMesh_UnitSquare(0.1)
+    mesh = generateMesh_UnitSquare(1)
     soln = PoissonZ3Solver(mesh)
-    #soln.IntegrationMatrixLHS()
-    #soln.ElementIntegrationRHS()
-    cm = mesh.ConnectivityMatrix()
-    np.savetxt('matrix.txt', cm)
+    LHS, RHS = soln.Assembly()
 if __name__=="__main__":
-    main()
+    cProfile.run('main()')
