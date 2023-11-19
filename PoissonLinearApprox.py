@@ -218,10 +218,10 @@ def to_matrix(arr):
     return mat
 def main():
     start = time.time()
-    mesh = generateMesh_UnitSquare(0.01)
-    solution = PoissonSolver(mesh, 1)
-    print(solution.solve()[100*50])
-    print(f"Took {start-time.time()} seconds")
+    mesh = generateMesh_UnitSquare(1/2)
+    solution = PoissonSolver(mesh, 0)
+    #np.savetxt("solution1.txt", solution.solve())
+    print(solution.solve())
 
 if __name__ == "__main__":
     main()
