@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 import matplotlib.tri as mtri
+from scipy import integrate
+
 """
 Code to solve the poisson equation using Galerkin Finite Element Method on a triangular mesh
 We take the domain to be the unit square 
@@ -15,6 +17,33 @@ u = 0 on the boundary
 ### ASSEMBly
 ### solve the linear system 
 ### Plot results
+def gaussian_quad(func, triangle):
+    # Quadrature weights and points in barycentric coordinates
+    weights = np.array([0.225000000000000, 0.125939180544827, 0.125939180544827, 0.125939180544827, 0.132394152788506, 0.132394152788506, 0.132394152788506])
+    barycentric_coordinates = np.array([[0.333333333333333, 0.333333333333333], [0.797426985353087, 0.101286507323456], [0.101286507323456, 0.797426985353087], [0.101286507323456, 0.101286507323456], [0.059715871789770, 0.470142064105115], [0.470142064105115, 0.059715871789770], [0.470142064105115, 0.470142064105115]])
+
+    # Vertices of the triangle
+    A = triangle.x_0
+    B = triangle.x_1
+    C = triangle.x_2
+
+    # Initialize the result
+    result = 0
+
+    # Loop over the quadrature points
+    for i in range(len(weights)):
+        # Convert the barycentric coordinates to Cartesian coordinates
+        alpha, beta = barycentric_coordinates[i]
+        gamma = 1 - alpha - beta
+        P = alpha * A + beta * B + gamma * C
+
+        # Evaluate the function at the quadrature point and add to the result
+        result += weights[i] * func(*P)
+
+    # Multiply by the area of the triangle
+    result *= triangle.area()
+
+    return result
 class Triangle:
     def __init__(self, vertices, VertexNumbers, GlobalNumber = 0):
         self.x_0 = np.array(vertices[0])
@@ -33,6 +62,18 @@ class Triangle:
         x_coord = (1/3)*(self.x_0[0]+self.x_1[0]+self.x_2[0])
         y_coord = (1/3)*(self.x_0[1]+self.x_1[1]+self.x_2[1])
         return [x_coord, y_coord]
+    def LocalLinear(self):
+        row_1 = np.array([1, self.x_0[0], self.x_0[1]])
+        row_2 = np.array([1, self.x_1[0], self.x_1[1]])
+        row_3 = np.array([1, self.x_2[0], self.x_2[1]])
+        LHS = np.array([row_1, row_2, row_3])
+        soln = []
+        for i in range(3):
+            RHS = np.zeros(3)
+            RHS[i] = 1
+            soln.append(np.linalg.solve(LHS, RHS))
+        return soln
+
 class Vertex:
     def __init__(self, coordinates, global_number, boundary):
         self.coordinates = coordinates
@@ -75,19 +116,25 @@ class PoissonSolver:
         n_triangles = len(self.mesh.triangles)
         IntegrationMatrix = np.zeros((n_triangles, 3, 3))
         for i in range(n_triangles):
+            c = self.mesh.triangles[i].LocalLinear()
             for j in range(3):
                 for k in range(3):
-                    IntegrationMatrix[i][j][k] = 0.25*(self.mesh.triangles[i].bvector[j]*self.mesh.triangles[i].bvector[k]+
-                                                                                       self.mesh.triangles[i].cvector[j]*self.mesh.triangles[i].cvector[k])/self.mesh.triangles[i].area()
+                    v_0 = c[j][1]*c[k][1] + c[j][2]*c[k][2]
+                    f = lambda x, y: v_0
+                    IntegrationMatrix[i][j][k] = gaussian_quad(f, self.mesh.triangles[i])
                      # as seen in MTx6052FiniteelementI.pdf page 13
         return IntegrationMatrix
     def ElementIntegrationRHS(self):
         n_triangles = len(self.mesh.triangles)
         RHSVector = np.zeros((3, n_triangles))
-        for i in range(3):
-            for j in range(n_triangles):    
-                RHSVector[i][j] = self.mesh.triangles[j].area()/3
-        return RHSVector
+        WRHSVector = np.zeros((3, n_triangles))
+        for k in range(n_triangles):
+            c = self.mesh.triangles[k].LocalLinear()
+            for i in range(3):
+                RHSVector[i][k] = self.mesh.triangles[k].area() / 3
+                f = lambda x, y: c[i][0] + c[i][1]*x + c[i][2]*y
+                WRHSVector[i][k] = gaussian_quad(f, self.mesh.triangles[k])
+        return WRHSVector
     def Assembly(self):
         ElementMatrix = self.ElementIntegrationLHS()
         ElementRHS = self.ElementIntegrationRHS()
@@ -214,14 +261,11 @@ def to_matrix(arr):
     for i in range(n-2):
         for j in range(n-2):
             mat[i+1][j+1] = arr[i][j]
-    
     return mat
 def main():
     start = time.time()
-    mesh = generateMesh_UnitSquare(1/2)
+    mesh = generateMesh_UnitSquare(0.1)
     solution = PoissonSolver(mesh, 0)
-    #np.savetxt("solution1.txt", solution.solve())
-    print(solution.solve())
-
+    print(np.max(solution.solve()))
 if __name__ == "__main__":
     main()

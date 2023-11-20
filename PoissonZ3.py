@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from scipy import integrate
 import cProfile
 import matplotlib.tri as mtri
+from PoissonLinearApprox import gaussian_quad
 plt.rcParams['text.usetex'] = True #for nice plots
 class Triangle:
     def __init__(self, vertices, VertexNumbers, GlobalNumber = 0):
@@ -98,43 +99,52 @@ class PoissonZ3Solver:
         self.mesh = mesh
         self.bc = bc
     def ElementIntegrationLHS(self):
-        # x = sp.Symbol('x')
-        # y = sp.Symbol("y")
-        # symb_vec =np.array([1, x, y, x**2, y**2, x*y, x**3, y**3, x**2*y, x*y**2])
-        power_vec =[[0,0], [1, 0], [0, 1], [2, 0], [0,2], [1, 1], [3, 0], [0,3], [2, 1], [1,2]]
         n_triangles = len(self.mesh.triangles)
         ElementMatrix = np.zeros((n_triangles, 10, 10))
         for k in range(n_triangles):
             c = self.mesh.triangles[k].LocalCubic() #coefficient matrix
-            d = c
             for i in range(10):
                 for j in range(10):
                     ## create a vector with c^i_kc^j_l coefficients as outlined in project
                     if j>=i:#taking advantage of the symmetry
-                        v_0 = c[i][1]*c[j][1] + c[i][2]*c[j][2]#1
-                        v_1 = 2*c[i][3]*c[j][1] + 2*c[i][1]*c[j][3] +c[i][5]*c[j][2] +c[i][2]*c[j][5]#x
-                        v_2 = 2*c[i][4]*c[j][2] +2*c[i][2]*c[j][4] +c[i][5]*c[j][1] +c[i][1]*c[j][5]#y
-                        v_3 = 3*c[i][6]*c[j][1] +3*c[i][1]*c[j][6] +4*c[i][3]*c[j][3] +c[i][8]*c[j][2] +c[i][2]*c[j][8] +c[i][5]*c[j][5]#x^2
-                        v_4 = c[i][9]*c[j][1] +c[i][1]*c[j][9] +c[i][5]*c[j][5] +3*c[i][7]*c[j][2] +3*c[i][2]*c[j][7] +4*c[i][4]*c[j][4]#y^2
-                        v_5 = 2*c[i][8]*c[j][1] +2*c[i][1]*c[j][8] +c[i][5]*c[j][3] +c[i][3]*c[j][5] +2*c[i][2]*c[j][9] +2*c[i][9]*c[j][2] +c[i][5]*c[j][4] +c[i][4]*c[j][5]#xy
-                        v_6 = 6*c[i][3]*c[j][6] +6*c[i][6]*c[j][3] +c[i][5]*c[j][8] +c[i][8]*c[j][5]#x^3
-                        v_7 = c[i][5]*c[j][9] +c[i][9]*c[j][5] +6*c[i][4]*c[j][7] +6*c[i][7]*c[j][4]#y^3
-                        v_8 = 3*c[i][6]*c[j][5] +3*c[i][5]*c[j][6] +4*c[i][3]*c[j][8] +4*c[i][8]*c[j][3] +2*c[i][8]*c[j][4] +2*c[i][4]*c[j][8] +2*c[i][5]*c[j][9] +2*c[i][9]*c[j][5]#x^2y
-                        v_9 = 3*c[i][7]*c[j][5] +3*c[i][5]*c[j][7] +4*c[i][4]*c[j][9]+ 4*+c[i][9]*c[j][4] +2*c[i][8]*c[j][5] +2*c[i][5]*c[j][8] +2*c[i][3]*c[j][9] +2*c[i][9]*c[j][3]#xy^2
-                        v_10 = 9*c[i][6]*c[j][6] +c[i][8]*c[j][8] #x^4
-                        v_11 = 9*c[i][7]*c[j][7] +c[i][9]*c[j][9] #y^4
-                        v_12 = 6*c[i][6]*c[j][8] +6*c[i][8]*c[j][6]+ 2*c[i][9]*c[j][8] +2*c[i][8]*c[j][9] #x^3y
-                        v_13 = 2*c[i][8]*c[j][9] +2*c[i][9]*c[j][8] +6*c[i][7]*c[j][9] +6*c[i][9]*c[j][7] #xy^3
-                        v_14 = 4*c[i][8]*c[j][8]+4*c[i][9]*c[j][9] #x^2y^2
-                        #f = lambda x,y: v_0+v_1*x+v_2*y+v_3*x**2+v_4*y**2+v_5*x*y+v_6*x**3+v_7*y**3+v_8*x**2*y+v_9*x*y**2+v_10*x**4+v_11*y**4+v_12*x**3*y+v_13*x*y**3+v_14*x**2*y**2
-                        f = lambda x,y: c[i][1]*d[j][1] + 2*c[i][1]*d[j][3]*x + c[i][1]*d[j][5]*y + 3*c[i][1]*d[j][6]*x**2 + 2*c[i][1]*d[j][8]*x*y + c[i][1]*d[j][9]*y**2 + c[i][2]*d[j][2] + 2*c[i][2]*d[j][4]*y + c[i][2]*d[j][5]*x + 3*c[i][2]*d[j][7]*y**2 + c[i][2]*d[j][8]*x**2 + 2*c[i][2]*d[j][9]*x*y + 2*c[i][3]*d[j][1]*x + 4*c[i][3]*d[j][3]*x**2 + 2*c[i][3]*d[j][5]*x*y + 6*c[i][3]*d[j][6]*x**3 + 4*c[i][3]*d[j][8]*x**2*y + 2*c[i][3]*d[j][9]*x*y**2 + 2*c[i][4]*d[j][2]*y + 4*c[i][4]*d[j][4]*y**2 + 2*c[i][4]*d[j][5]*x*y + 6*c[i][4]*d[j][7]*y**3 + 2*c[i][4]*d[j][8]*x**2*y + 4*c[i][4]*d[j][9]*x*y**2 + c[i][5]*d[j][1]*y + c[i][5]*d[j][2]*x + 2*c[i][5]*d[j][3]*x*y + 2*c[i][5]*d[j][4]*x*y + c[i][5]*d[j][5]*x**2 + c[i][5]*d[j][5]*y**2 + 3*c[i][5]*d[j][6]*x**2*y + 3*c[i][5]*d[j][7]*x*y**2 + c[i][5]*d[j][8]*x**3 + 2*c[i][5]*d[j][8]*x*y**2 + 2*c[i][5]*d[j][9]*x**2*y + c[i][5]*d[j][9]*y**3 + 3*c[i][6]*d[j][1]*x**2 + 6*c[i][6]*d[j][3]*x**3 + 3*c[i][6]*d[j][5]*x**2*y + 9*c[i][6]*d[j][6]*x**4 + 6*c[i][6]*d[j][8]*x**3*y + 3*c[i][6]*d[j][9]*x**2*y**2 + 3*c[i][7]*d[j][2]*y**2 + 6*c[i][7]*d[j][4]*y**3 + 3*c[i][7]*d[j][5]*x*y**2 + 9*c[i][7]*d[j][7]*y**4 + 3*c[i][7]*d[j][8]*x**2*y**2 + 6*c[i][7]*d[j][9]*x*y**3 + 2*c[i][9]*d[j][1]*x*y + c[i][9]*d[j][1]*y**2 + c[i][9]*d[j][2]*x**2 + 2*c[i][9]*d[j][2]*x*y + 4*c[i][9]*d[j][3]*x**2*y + 2*c[i][9]*d[j][3]*x*y**2 + 2*c[i][9]*d[j][4]*x**2*y + 4*c[i][9]*d[j][4]*x*y**2 + c[i][9]*d[j][5]*x**3 + 2*c[i][9]*d[j][5]*x**2*y + 2*c[i][9]*d[j][5]*x*y**2 + c[i][9]*d[j][5]*y**3 + 6*c[i][9]*d[j][6]*x**3*y + 3*c[i][9]*d[j][6]*x**2*y**2 + 3*c[i][9]*d[j][7]*x**2*y**2 + 6*c[i][9]*d[j][7]*x*y**3 + c[i][9]*d[j][8]*x**4 + 2*c[i][9]*d[j][8]*x**3*y + 4*c[i][9]*d[j][8]*x**2*y**2 + 2*c[i][9]*d[j][8]*x*y**3 + 2*c[i][9]*d[j][9]*x**3*y + 4*c[i][9]*d[j][9]*x**2*y**2 + 2*c[i][9]*d[j][9]*x*y**3 + c[i][9]*d[j][9]*y**4
-
-                        if k%2==0:##upward oriented
-                            ElementMatrix[k][i][j] = integrate.dblquad(f, self.mesh.triangles[k].x_1[0], self.mesh.triangles[k].x_1[0]+self.mesh.h,
-                                                                                    lambda x: x-self.mesh.triangles[k].x_1[0]+self.mesh.triangles[k].x_1[1]-self.mesh.h, self.mesh.triangles[k].x_1[1])[0]
-                        else:##downward oriented
-                            ElementMatrix[k][i][j]=integrate.dblquad(f, self.mesh.triangles[k].x_0[0]-self.mesh.h, self.mesh.triangles[k].x_0[0],
-                                                                                self.mesh.triangles[k].x_0[1],lambda x: x-self.mesh.triangles[k].x_0[0]+self.mesh.triangles[k].x_0[1]+self.mesh.h)[0]
+                        # v_0 = c[i][1]*c[j][1] + c[i][2]*c[j][2]#1
+                        # v_1 = 2*c[i][3]*c[j][1] + 2*c[i][1]*c[j][3] +c[i][5]*c[j][2] +c[i][2]*c[j][5]#x
+                        # v_2 = 2*c[i][4]*c[j][2] +2*c[i][2]*c[j][4] +c[i][5]*c[j][1] +c[i][1]*c[j][5]#y
+                        # v_3 = 3*c[i][6]*c[j][1] +3*c[i][1]*c[j][6] +4*c[i][3]*c[j][3] +c[i][8]*c[j][2] +c[i][2]*c[j][8] +c[i][5]*c[j][5]#x^2
+                        # v_4 = c[i][9]*c[j][1] +c[i][1]*c[j][9] +c[i][5]*c[j][5] +3*c[i][7]*c[j][2] +3*c[i][2]*c[j][7] +4*c[i][4]*c[j][4]#y^2
+                        # v_5 = 2*c[i][8]*c[j][1] +2*c[i][1]*c[j][8] +c[i][5]*c[j][3] +c[i][3]*c[j][5] +2*c[i][2]*c[j][9] +2*c[i][9]*c[j][2] +c[i][5]*c[j][4] +c[i][4]*c[j][5]#xy
+                        # v_6 = 6*c[i][3]*c[j][6] +6*c[i][6]*c[j][3] +c[i][5]*c[j][8] +c[i][8]*c[j][5]#x^3
+                        # v_7 = c[i][5]*c[j][9] +c[i][9]*c[j][5] +6*c[i][4]*c[j][7] +6*c[i][7]*c[j][4]#y^3
+                        # v_8 = 3*c[i][6]*c[j][5] +3*c[i][5]*c[j][6] +4*c[i][3]*c[j][8] +4*c[i][8]*c[j][3] +2*c[i][8]*c[j][4] +2*c[i][4]*c[j][8] +2*c[i][5]*c[j][9] +2*c[i][9]*c[j][5]#x^2y
+                        # v_9 = 3*c[i][7]*c[j][5] +3*c[i][5]*c[j][7] +4*c[i][4]*c[j][9]+ 4*+c[i][9]*c[j][4] +2*c[i][8]*c[j][5] +2*c[i][5]*c[j][8] +2*c[i][3]*c[j][9] +2*c[i][9]*c[j][3]#xy^2
+                        # v_10 = 9*c[i][6]*c[j][6] +c[i][8]*c[j][8] #x^4
+                        # v_11 = 9*c[i][7]*c[j][7] +c[i][9]*c[j][9] #y^4
+                        # v_12 = 6*c[i][6]*c[j][8] +6*c[i][8]*c[j][6]+ 2*c[i][9]*c[j][8] +2*c[i][8]*c[j][9] #x^3y
+                        # v_13 = 2*c[i][8]*c[j][9] +2*c[i][9]*c[j][8] +6*c[i][7]*c[j][9] +6*c[i][9]*c[j][7] #xy^3
+                        # v_14 = 4*c[i][8]*c[j][8]+4*c[i][9]*c[j][9] #x^2y^2
+                        v_0 = c[i][1]*c[j][1]+ c[i][2]*c[j][2]#1
+                        v_1 = 2*c[i][1]*c[j][3]+c[i][2]*c[j][5]+2*c[i][3]*c[j][1]+ c[i][5]*c[j][2]#x
+                        v_2 = c[i][1]*c[j][5]+2*c[i][2]*c[j][4]+ 2*c[i][4]*c[j][2]+ c[i][5]*c[j][1]#y
+                        v_3 = 3*c[i][1]*c[j][6]+c[i][2]*c[j][8]+4*c[i][3]*c[j][3]+c[i][5]*c[j][5]+ 3*c[i][6]*c[j][1] + c[i][8]*c[j][2]#x^2
+                        v_4 = c[i][1]*c[j][9] + 3*c[i][2]*c[j][7] + 4*c[i][4]*c[j][4]+ c[i][5]*c[j][5] + 3*c[i][7]*c[j][2] + c[i][9]*c[j][1]#y^2
+                        v_5 =2*c[i][1]*c[j][8]+2*c[i][2]*c[j][9]+2*c[i][3]*c[j][5] + 2*c[i][4]*c[j][5]+ 2*c[i][5]*c[j][3] + 2*c[i][5]*c[j][4] + 2*c[i][8]*c[j][1]+2*c[i][9]*c[j][2]#xy
+                        v_6 = 6*c[i][3]*c[j][6]+ c[i][5]*c[j][8] + 6*c[i][6]*c[j][3] + c[i][8]*c[j][5] #x^3
+                        v_7 = 6*c[i][4]*c[j][7] + c[i][5]*c[j][9] + 6*c[i][7]*c[j][4] + c[i][9]*c[j][5]#y^3
+                        v_8 = 4*c[i][3]*c[j][8]+ 2*c[i][4]*c[j][8]+ 3*c[i][5]*c[j][6] + 2*c[i][5]*c[j][9] + 3*c[i][6]*c[j][5] + 4*c[i][8]*c[j][3] + 2*c[i][8]*c[j][4] + 2*c[i][9]*c[j][5]#x^2y
+                        v_9 = 2*c[i][3]*c[j][9]+ 4*c[i][4]*c[j][9] + 3*c[i][5]*c[j][7] + 2*c[i][5]*c[j][8]+ 3*c[i][7]*c[j][5] + 2*c[i][9]*c[j][3] + 4*c[i][9]*c[j][4] + 2*c[i][8]*c[j][5]#xy^2
+                        v_10 = 9*c[i][6]*c[j][6] + c[i][8]*c[j][8]#x^4
+                        v_11 = 9*c[i][7]*c[j][7]+ c[i][9]*c[j][9]#y^4
+                        v_12 = 6*c[i][6]*c[j][8] + 6*c[i][8]*c[j][6] + 2*c[i][8]*c[j][9] + 2*c[i][9]*c[j][8]#x^3y
+                        v_13 = 6*c[i][7]*c[j][9]+ 6*c[i][9]*c[j][7]+ 2*c[i][9]*c[j][8] + 2*c[i][8]*c[j][9]#xy^3
+                        v_14 = 3*c[i][6]*c[j][9]+ 3*c[i][7]*c[j][8] + 3*c[i][9]*c[j][6] + 3*c[i][8]*c[j][7] + 4*c[i][8]*c[j][8]+4*c[i][9]*c[j][9]#x^2y^2
+                        f = lambda x,y: v_0+v_1*x+v_2*y+v_3*x**2+v_4*y**2+v_5*x*y+v_6*x**3+v_7*y**3+v_8*x**2*y+v_9*x*y**2+v_10*x**4+v_11*y**4+v_12*x**3*y+v_13*x*y**3+v_14*x**2*y**2
+                        ElementMatrix[k][i][j] = gaussian_quad(f, self.mesh.triangles[k])
+                        # if k%2==0:##upward oriented
+                        #     ElementMatrix[k][i][j] = integrate.dblquad(f, self.mesh.triangles[k].x_1[0], self.mesh.triangles[k].x_1[0]+self.mesh.h,
+                        #                                                             lambda x: x-self.mesh.triangles[k].x_1[0]+self.mesh.triangles[k].x_1[1]-self.mesh.h, self.mesh.triangles[k].x_1[1])[0]
+                        # else:##downward oriented
+                        #     ElementMatrix[k][i][j]=integrate.dblquad(f, self.mesh.triangles[k].x_0[0]-self.mesh.h, self.mesh.triangles[k].x_0[0],
+                        #                                                         self.mesh.triangles[k].x_0[1],lambda x: x-self.mesh.triangles[k].x_0[0]+self.mesh.triangles[k].x_0[1]+self.mesh.h)[0]
                     else:
                         ElementMatrix[k][i][j] = ElementMatrix[k][j][i]
         return ElementMatrix
@@ -149,20 +159,19 @@ class PoissonZ3Solver:
         return True
             
     def ElementIntegrationRHS(self):
-        power_vec =[[0,0], [1, 0], [0, 1], [2, 0], [0,2], [1, 1], [3, 0], [0,3], [2, 1], [1,2]]
         n_triangles = len(self.mesh.triangles)
         ElementVector = np.zeros((n_triangles, 10))
         for n in range(n_triangles):
-                c = self.mesh.triangles[n].LocalCubic() #coefficient matrix
-                for i in range(10):
-                    f = lambda x,y: c[i][0]+c[i][1]*x+c[i][2]*y+c[i][3]*x**2+c[i][4]*y**2+c[i][5]*x*y+c[i][6]*x**3+c[i][7]*x**3+c[i][8]*x**2*y+c[i][9]*x*y**2
-                    if n%2==0:##upward oriented
-                        ElementVector[n][i] = integrate.dblquad(f, self.mesh.triangles[n].x_1[0], self.mesh.triangles[n].x_1[0]+self.mesh.h,
-                                                                            lambda x: x-self.mesh.triangles[n].x_1[0]+self.mesh.triangles[n].x_1[1]-self.mesh.h, self.mesh.triangles[n].x_1[1])[0]
-
-                    else:##downward oriented
-                        ElementVector[n][i]=integrate.dblquad(f, self.mesh.triangles[n].x_0[0]-self.mesh.h, self.mesh.triangles[n].x_0[0],
-                                                                        self.mesh.triangles[n].x_0[1],lambda x: x-self.mesh.triangles[n].x_0[0]+self.mesh.triangles[n].x_0[1]+self.mesh.h)[0]
+            c = self.mesh.triangles[n].LocalCubic() #coefficient matrix
+            for i in range(10):
+                f = lambda x,y: c[i][0]+c[i][1]*x+c[i][2]*y+c[i][3]*x**2+c[i][4]*y**2+c[i][5]*x*y+c[i][6]*x**3+c[i][7]*y**3+c[i][8]*x**2*y+c[i][9]*x*y**2
+                ElementVector[n][i] = gaussian_quad(f, self.mesh.triangles[n])
+                # if n%2==0:##upward oriented
+                #     ElementVector[n][i] = integrate.dblquad(f, self.mesh.triangles[n].x_1[0], self.mesh.triangles[n].x_1[0]+self.mesh.h,
+                #                                                         lambda x: x-self.mesh.triangles[n].x_1[0]+self.mesh.triangles[n].x_1[1]-self.mesh.h, self.mesh.triangles[n].x_1[1])[0]
+                # else:##downward oriented
+                #     ElementVector[n][i]=integrate.dblquad(f, self.mesh.triangles[n].x_0[0]-self.mesh.h, self.mesh.triangles[n].x_0[0],
+                #                                                     self.mesh.triangles[n].x_0[1],lambda x: x-self.mesh.triangles[n].x_0[0]+self.mesh.triangles[n].x_0[1]+self.mesh.h)[0]
         return ElementVector
     def Assembly(self):
         ElementMatrix = self.ElementIntegrationLHS()
@@ -184,6 +193,7 @@ class PoissonZ3Solver:
                 LHS[i, :]= 0
                 LHS[i][i] = 1
                 RHS[i] = 0
+
         return LHS, RHS
     def Solve(self):
         LHS, RHS = self.Assembly()
@@ -215,6 +225,32 @@ class PoissonZ3Solver:
         )
         ax.set_title(f'Poisson equation solution with h = {self.mesh.h}')
         plt.show()
+    def Plot_and_Save(self):
+        solution = self.Solve()
+        solution = solution[0:len(self.mesh.vertices)]
+        soln = []
+        for i in range(len(solution)):
+            if i%3==0:
+                soln.append(solution[i])
+        soln = np.array(soln)
+        n = len(soln)
+        soln = soln.reshape((int(np.sqrt(n)), int(np.sqrt(n))))
+        ## inspired by https://matplotlib.org/stable/gallery/mplot3d/trisurf3d_2.html#sphx-glr-gallery-mplot3d-trisurf3d-2-py
+        x = y = np.linspace(0, 1, int(1/self.mesh.h) +1 )
+        x, y = np.meshgrid(x, y)
+        x, y = x.flatten(), y.flatten()
+        z = soln.flatten()
+        tri = mtri.Triangulation(x, y)
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        ax.plot_trisurf(x, y, z, triangles=tri.triangles, cmap=plt.cm.Spectral_r )
+        ax.set(
+            xlabel = 'x',
+            ylabel = 'y',
+            zlabel = 'z'
+        )
+        ax.set_title(f'Poisson equation solution with h = {self.mesh.h}, using z3 elements')
+        plt.savefig(f'figures/poisson_z3_{self.mesh.h}__.jpg')
 def generateMesh_UnitSquare(h = 0.2):
     x = y = np.linspace(0, 1, int(1/h)+1)
     x_grid, y_grid = np.meshgrid(x, y)
@@ -272,9 +308,8 @@ def generateMesh_UnitSquare(h = 0.2):
         all_but_coms.append(y_vertices[i])
     return Mesh(all_but_coms, triangles, h)
 def main():
-    mesh = generateMesh_UnitSquare(0.25)
-    soln = PoissonZ3Solver(mesh)
-    soln.TestIntegrationLHS()
+    mesh = generateMesh_UnitSquare(0.1)
+    solver = PoissonZ3Solver(mesh)
+    solver.Plot_and_Save()
 if __name__=="__main__":
-    main()
-#    cProfile.run("main()")
+   cProfile.run("main()")
