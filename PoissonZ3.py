@@ -219,11 +219,11 @@ class PoissonZ3Solver:
         ax = fig.add_subplot(projection='3d')
         ax.plot_trisurf(x, y, z, triangles=tri.triangles, cmap=plt.cm.Spectral_r )
         ax.set(
-            xlabel = 'x',
-            ylabel = 'y',
-            zlabel = 'z'
+            xlabel = '$x$',
+            ylabel = '$y$',
+            zlabel = '$z$'
         )
-        ax.set_title(f'Poisson equation solution with h = {self.mesh.h}')
+        ax.set_title(f'Laplace equation solution with h = {self.mesh.h}')
         plt.show()
     def Plot_and_Save(self):
         solution = self.Solve()
@@ -245,12 +245,12 @@ class PoissonZ3Solver:
         ax = fig.add_subplot(projection='3d')
         ax.plot_trisurf(x, y, z, triangles=tri.triangles, cmap=plt.cm.Spectral_r )
         ax.set(
-            xlabel = 'x',
-            ylabel = 'y',
-            zlabel = 'z'
+            xlabel = '$x$',
+            ylabel = '$y$',
+            zlabel = '$z$'
         )
-        ax.set_title(f'Poisson equation solution with h = {self.mesh.h}, using z3 elements')
-        plt.savefig(f'figures/poisson_z3_{self.mesh.h}__.jpg')
+        ax.set_title(fr'$\Delta u = -1$ solution with $h = {self.mesh.h}$, and $u = 0$ on $\partial \Omega$')
+        plt.savefig(f'figures/poisson_z3_{self.mesh.h}__.jpg', dpi=300)
 def generateMesh_UnitSquare(h = 0.2):
     x = y = np.linspace(0, 1, int(1/h)+1)
     x_grid, y_grid = np.meshgrid(x, y)
@@ -312,4 +312,4 @@ def main():
     solver = PoissonZ3Solver(mesh)
     solver.Plot_and_Save()
 if __name__=="__main__":
-   cProfile.run("main()")
+   main()

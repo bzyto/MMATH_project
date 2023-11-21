@@ -27,21 +27,38 @@ def gaussian_quad(func, triangle):
     B = triangle.x_1
     C = triangle.x_2
 
-    # Initialize the result
-    result = 0
+    # Convert the barycentric coordinates to Cartesian coordinates
+    alpha = barycentric_coordinates[:, 0]
+    beta = barycentric_coordinates[:, 1]
+    gamma = 1 - alpha - beta
+    P = alpha[:, np.newaxis] * A + beta[:, np.newaxis] * B + gamma[:, np.newaxis] * C
 
-    # Loop over the quadrature points
-    for i in range(len(weights)):
-        # Convert the barycentric coordinates to Cartesian coordinates
-        alpha, beta = barycentric_coordinates[i]
-        gamma = 1 - alpha - beta
-        P = alpha * A + beta * B + gamma * C
+    # Evaluate the function at the quadrature points
+    func_values = func(*P.T)
 
-        # Evaluate the function at the quadrature point and add to the result
-        result += weights[i] * func(*P)
+    # Calculate the integral using vectorized operations
+    result = np.dot(weights, func_values) * triangle.area()
 
-    # Multiply by the area of the triangle
-    result *= triangle.area()
+    return result
+def gaussian_quad_v(func, triangle):
+    # Quadrature weights and points in barycentric coordinates
+    weights = np.array([0.225000000000000, 0.125939180544827, 0.125939180544827, 0.125939180544827, 0.132394152788506, 0.132394152788506, 0.132394152788506])
+    barycentric_coordinates = np.array([[0.333333333333333, 0.333333333333333], [0.797426985353087, 0.101286507323456], [0.101286507323456, 0.797426985353087], [0.101286507323456, 0.101286507323456], [0.059715871789770, 0.470142064105115], [0.470142064105115, 0.059715871789770], [0.470142064105115, 0.470142064105115]])
+
+    # Vertices of the triangle
+    A = triangle.x_0
+    B = triangle.x_1
+    C = triangle.x_2
+
+    # Convert the barycentric coordinates to Cartesian coordinates
+    gamma = 1 - np.sum(barycentric_coordinates, axis=1)
+    P = np.outer(barycentric_coordinates[:, 0], A) + np.outer(barycentric_coordinates[:, 1], B) + np.outer(gamma, C)
+
+    # Evaluate the function at the quadrature points
+    func_values = np.apply_along_axis(*func, 1, P)
+
+    # Calculate the integral
+    result = triangle.area() * np.dot(weights, func_values)
 
     return result
 class Triangle:
