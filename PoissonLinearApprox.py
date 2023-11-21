@@ -27,17 +27,24 @@ def gaussian_quad(func, triangle):
     B = triangle.x_1
     C = triangle.x_2
 
-    # Convert the barycentric coordinates to Cartesian coordinates
-    alpha = barycentric_coordinates[:, 0]
-    beta = barycentric_coordinates[:, 1]
-    gamma = 1 - alpha - beta
-    P = alpha[:, np.newaxis] * A + beta[:, np.newaxis] * B + gamma[:, np.newaxis] * C
+    # Area of the triangle
+    area = 0.5 * abs((B[0] - A[0]) * (C[1] - A[1]) - (C[0] - A[0]) * (B[1] - A[1]))
 
-    # Evaluate the function at the quadrature points
-    func_values = func(*P.T)
+    # Initialize the result
+    result = 0
 
-    # Calculate the integral using vectorized operations
-    result = np.dot(weights, func_values) * triangle.area()
+    # Loop over the quadrature points
+    for i in range(len(weights)):
+        # Convert the barycentric coordinates to Cartesian coordinates
+        alpha, beta = barycentric_coordinates[i]
+        gamma = 1 - alpha - beta
+        P = alpha * A + beta * B + gamma * C
+
+        # Evaluate the function at the quadrature point and add to the result
+        result += weights[i] * func(*P)
+
+    # Multiply by the area of the triangle
+    result *= area
 
     return result
 def gaussian_quad_v(func, triangle):
@@ -176,7 +183,6 @@ class PoissonSolver:
     def solve(self):
         LHS, RHS = self.Assembly()
         soln = np.linalg.solve(LHS, RHS)
-        #print(soln)
         return soln
     def plot(self):
         soln = self.solve()
@@ -283,6 +289,6 @@ def main():
     start = time.time()
     mesh = generateMesh_UnitSquare(0.1)
     solution = PoissonSolver(mesh, 0)
-    print(np.max(solution.solve()))
+    solution.solve()
 if __name__ == "__main__":
     main()
