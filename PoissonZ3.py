@@ -153,16 +153,14 @@ class PoissonZ3Solver:
             v_12 = 6 * np.outer(c[:, 6], c[:, 8]) + 6 * np.outer(c[:, 8], c[:, 6]) + 2 * np.outer(c[:, 8], c[:, 9]) + 2 * np.outer(c[:, 9], c[:, 8])  # x^3y
             v_13 = 6 * np.outer(c[:, 7], c[:, 9]) + 6 * np.outer(c[:, 9], c[:, 7]) + 2 * np.outer(c[:, 9], c[:, 8]) + 2 * np.outer(c[:, 8], c[:, 9])  # xy^3
             v_14 = 3 * np.outer(c[:, 6], c[:, 9]) + 3 * np.outer(c[:, 7], c[:, 8]) + 3 * np.outer(c[:, 9], c[:, 6]) + 3 * np.outer(c[:, 8], c[:, 7]) + 4 * np.outer(c[:, 8], c[:, 8]) + 4 * np.outer(c[:, 9], c[:, 9])  # x^2y^2
-
-            # Define your integration function (replace this with your actu
             f = lambda x,y :v_0 + v_1 * x + v_2 * y + v_3 * x**2 + v_4 * y**2 + v_5 * x*y + v_6 * x**3 + v_7 * y**3 + v_8 * x**2*y + v_9 * x*y**2 + v_10 * x**4 + v_11 * y**4 + v_12 * x**3*y + v_13 * x*y**3 + v_14 * x**2*y**2
-            # Use NumPy to calculate the final result for the entire matrix
             ElementMatrix[k] = np.where(mask, gaussian_quad(f, self.mesh.triangles[k]), ElementMatrix[k].T)
 
             # Ensure symmetry
             ElementMatrix[k] = np.where(mask, ElementMatrix[k], ElementMatrix[k].T)
 
         return ElementMatrix
+
     def TestIntegrationLHS(self):
         ElementMatrix = self.ElementIntegrationLHS()
         for k in range(len(self.mesh.triangles)):
@@ -173,12 +171,12 @@ class PoissonZ3Solver:
                     return False
         return True
             
-    def ElementIntegrationRHS(self):
+    def ElementIntegrationRHS(self, func = lambda x,y: 1):
         n_triangles = len(self.mesh.triangles)
         ElementVector = np.zeros((n_triangles, 10))
         for n in range(n_triangles):
             c = self.mesh.triangles[n].LocalCubic() #coefficient matrix
-            f = lambda x,y: c[:, 0] + c[:, 1] * x + c[:, 2] * y + c[:, 3] * x**2 + c[:, 4] * y**2 + c[:, 5] * x * y + c[:, 6] * x**3 + c[:, 7] * y**3 + c[:, 8] * x**2 * y + c[:, 9] * x * y**2
+            f = lambda x,y: func(x,y)*(c[:, 0] + c[:, 1] * x + c[:, 2] * y + c[:, 3] * x**2 + c[:, 4] * y**2 + c[:, 5] * x * y + c[:, 6] * x**3 + c[:, 7] * y**3 + c[:, 8] * x**2 * y + c[:, 9] * x * y**2)
             ElementVector[n] = gaussian_quad(f, self.mesh.triangles[n])
         return ElementVector
     def Assembly(self):
@@ -221,6 +219,7 @@ class PoissonZ3Solver:
     def Solve(self):
         LHS, RHS = self.Assembly()
         solution = sparse.linalg.spsolve(sparse.csr_matrix(LHS), RHS)##taking advantage of the sparsity of the matrix
+        print(np.shape(LHS))
         return solution
     def PlotSolution(self):
         solution = self.Solve()
@@ -246,7 +245,7 @@ class PoissonZ3Solver:
             ylabel = '$y$',
             zlabel = '$z$'
         )
-        ax.set_title(f'Laplace equation solution with h = {self.mesh.h}')
+        ax.set_title(fr'$\Delta u = -1$ solution with $h = {self.mesh.h}$, and $u = 0$ on $\partial \Omega$')
         plt.show()
     def Plot_and_Save(self):
         solution = self.Solve()
@@ -266,13 +265,13 @@ class PoissonZ3Solver:
         tri = mtri.Triangulation(x, y)
         fig = plt.figure()
         ax = fig.add_subplot(projection='3d')
-        ax.plot_trisurf(x, y, z, triangles=tri.triangles, cmap=plt.cm.Spectral_r )
+        ax.plot_trisurf(x, y, z, triangles=tri.triangles, cmap=plt.cm.jet )
         ax.set(
             xlabel = '$x$',
             ylabel = '$y$',
             zlabel = '$z$'
         )
-        ax.set_title(fr'$\Delta u = -1$ solution with $h = {self.mesh.h}$, and $u = 0$ on $\partial \Omega$')
+        ax.set_title(fr'$\Delta u = -1$ and $u = 0$ on $\partial \Omega$, solution with $h = {self.mesh.h}$')
         plt.savefig(f'figures/poisson_z3_{self.mesh.h}__.jpg', dpi=300)
 def generateMesh_UnitSquare(h = 0.2):
     x = y = np.linspace(0, 1, int(1/h)+1)
@@ -335,8 +334,8 @@ def generateMesh_UnitSquare(h = 0.2):
         all_but_coms.append(y_vertices[i])
     return Mesh(all_but_coms, triangles, h)
 def main():
-    mesh = generateMesh_UnitSquare(0.025)
+    mesh = generateMesh_UnitSquare(1/20)
     solver = PoissonZ3Solver(mesh)
-    solver.Solve()
+    solver.PlotSolution()
 if __name__=="__main__":
-   cProfile.run('main()')
+    main()

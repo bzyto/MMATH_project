@@ -28,7 +28,6 @@ def gaussian_quad(func, triangle):
     C = triangle.x_2
 
     # Area of the triangle
-    area = 0.5 * abs((B[0] - A[0]) * (C[1] - A[1]) - (C[0] - A[0]) * (B[1] - A[1]))
 
     # Initialize the result
     result = 0
@@ -44,7 +43,7 @@ def gaussian_quad(func, triangle):
         result += weights[i] * func(*P)
 
     # Multiply by the area of the triangle
-    result *= area
+    result *= triangle.area()
 
     return result
 def gaussian_quad_v(func, triangle):
@@ -287,7 +286,7 @@ def to_matrix(arr):
     return mat
 def main():
     start = time.time()
-    mesh = generateMesh_UnitSquare(0.1)
+    mesh = generateMesh_UnitSquare(0.025)
     solution = PoissonSolver(mesh, 0)
     solution.solve()
 if __name__ == "__main__":
