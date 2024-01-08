@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from scipy import sparse
 import cProfile
 import matplotlib.tri as mtri
+import time
 from PoissonLinearApprox import gaussian_quad
 plt.rcParams['text.usetex'] = True #for nice plots
 class Triangle:
@@ -58,11 +59,12 @@ class Triangle:
         coordinates = [self.x_0, self.x_1,self.x_2, np.array(self.COM())]
 
 class Vertex:
-    def __init__(self, coordinates, global_number, boundary, wb = None):
+    def __init__(self, coordinates, global_number, boundary, wb = None, val = None):
         self.coordinates = coordinates
         self.global_number = global_number
         self.boundary = boundary
         self.which_boundary = wb
+        self.val = val
     def __str__(self):
         return "Vertex with coordinates " +str(self.coordinates)+" and global number " +str(self.global_number)
 class Mesh:
@@ -79,9 +81,9 @@ class Mesh:
             plt.plot([triangle.x_2[0], triangle.x_0[0]], [triangle.x_2[1], triangle.x_0[1]], 'k-')
             if numbering:
                 plt.text(triangle.COM()[0], triangle.COM()[1], str(fr"\textcircled{triangle.GlobalNumber}")) #color = 'red')
-                plt.text(triangle.x_0[0], triangle.x_0[1], 0)#str(triangle.VertexNumbers[0]))
-                plt.text(triangle.x_1[0], triangle.x_1[1], 1)#str(triangle.VertexNumbers[1]))
-                plt.text(triangle.x_2[0], triangle.x_2[1], 2)#str(triangle.VertexNumbers[2]))
+                # plt.text(triangle.x_0[0], triangle.x_0[1], 0)#str(triangle.VertexNumbers[0]))
+                # plt.text(triangle.x_1[0], triangle.x_1[1], 1)#str(triangle.VertexNumbers[1]))
+                # plt.text(triangle.x_2[0], triangle.x_2[1], 2)#str(triangle.VertexNumbers[2]))
         plt.title(fr"Triangular mesh with $h$ = {self.h}")
         plt.xlabel(r'$x$')
         plt.ylabel(r'$y$', rotation = 0)
@@ -95,6 +97,12 @@ class Mesh:
             for j in range(10):
                 CMatrix[i][j] = self.triangles[i].VertexNumbers[j]
         return CMatrix
+    def MapSolution(self, solution):
+        for index, value in enumerate(solution.flatten()):
+            try:
+                self.vertices[index].val = value
+            except IndexError:
+                return
 class PoissonZ3Solver:
     def __init__(self, mesh, bc=0):
         self.mesh = mesh
@@ -134,7 +142,6 @@ class PoissonZ3Solver:
 
         for k in range(n_triangles):
             c = self.mesh.triangles[k].LocalCubic()
-
             i, j = np.indices((10, 10))
             mask = j >= i
 
@@ -172,6 +179,8 @@ class PoissonZ3Solver:
         return True
             
     def ElementIntegrationRHS(self, func = lambda x,y: 1):
+        func = lambda x,y : 2*np.pi**2*np.sin(x*np.pi)*np.sin(y*np.pi)
+        #func = lambda x,y: np.exp(-x**2-y**2)
         n_triangles = len(self.mesh.triangles)
         ElementVector = np.zeros((n_triangles, 10))
         for n in range(n_triangles):
@@ -218,8 +227,8 @@ class PoissonZ3Solver:
         return LHS, RHS
     def Solve(self):
         LHS, RHS = self.Assembly()
+        #matrix_to_binary_image(LHS)
         solution = sparse.linalg.spsolve(sparse.csr_matrix(LHS), RHS)##taking advantage of the sparsity of the matrix
-        print(np.shape(LHS))
         return solution
     def PlotSolution(self):
         solution = self.Solve()
@@ -245,7 +254,7 @@ class PoissonZ3Solver:
             ylabel = '$y$',
             zlabel = '$z$'
         )
-        ax.set_title(fr'$\Delta u = -1$ solution with $h = {self.mesh.h}$, and $u = 0$ on $\partial \Omega$')
+        ax.set_title(fr'$-\nabla u = 2\pi^2\sin(\pi x)\sin(\pi y)$ solution with $h = {self.mesh.h}$, and $u = 0$ on $\partial \Omega$')
         plt.show()
     def Plot_and_Save(self):
         solution = self.Solve()
@@ -333,9 +342,19 @@ def generateMesh_UnitSquare(h = 0.2):
         all_but_coms.append(x_vertices[i])
         all_but_coms.append(y_vertices[i])
     return Mesh(all_but_coms, triangles, h)
+def matrix_to_binary_image(matrix):
+    # Create a binary matrix where 1 represents nonzero entries
+    binary_matrix = np.where(matrix != 0, 1, 0)
+
+    # Plot the binary image
+    plt.imshow(binary_matrix, cmap='binary', interpolation='nearest')
+    plt.show()
+import time
+def u_exact(x,y):
+    return np.sin(np.pi*x)*np.sin(np.pi*y)
 def main():
-    mesh = generateMesh_UnitSquare(1/20)
-    solver = PoissonZ3Solver(mesh)
-    solver.PlotSolution()
+    mesh = generateMesh_UnitSquare(1/32)
+    solver = PoissonZ3Solver(mesh, 0)
+    a = solver.PlotSolution()
 if __name__=="__main__":
     main()
