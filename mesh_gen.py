@@ -37,8 +37,6 @@ def lower_resolution(input_path, output_path, scale_percent):
     return binary_image
 
 # Replace 'your_image_path.jpg' with the actual path to your image file
-input_image_path = 'delft.png'
-output_image_path = 'output_image_lower_resolution.jpg'
 
 # Set the scale percentage (e.g., 50% for half the resolution)
 def remove_boundary_ones(boundary_image):
@@ -81,7 +79,6 @@ def fill_inside_boundary(binary_image):
 
     return filled_image
 scale_percent = 30
-a = lower_resolution(input_image_path, output_image_path, scale_percent)
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 import numpy as np
@@ -118,14 +115,10 @@ def find_boundary_vertices(triangulation):
     # Flatten the edges array and count the number of occurrences of each point
     point_counts = np.bincount(edges.ravel())
     # Find the points that appear only once, which are the boundary points
-    boundary_points = np.where(point_counts==3)[0]
+    boundary_points = np.where(point_counts==5)[0]
 
     return boundary_points
-boundaries = get_boundary(a)
-boundaries = remove_boundary_ones(boundaries//255)
-boundaries = remove_isolated_ones(boundaries)
-bound = fill_inside_boundary(boundaries)
-triangulation = generate_mesh(bound)
+
 def generate_vertices(triangulation):
     bound = find_boundary_vertices(triangulation)
     vertices =[]
@@ -144,34 +137,3 @@ def generate_mytriangles(triangulation):
         point3 = triangulation.x[triangle[2]], triangulation.y[triangle[2]]
         trigs.append(Triangle([point1, point2, point3], triangle, index))
     return trigs
-mesh = Mesh(generate_vertices(triangulation), generate_mytriangles(triangulation), 0)
-solution = PoissonSolver(mesh, 0)
-#mesh.plot()
-#solution =solution.solve()
-
-plt.figure()
-plt.triplot(triangulation, '-')
-plt.title('TU Delft logo triangular mesh')
-plt.xticks([])  # Hide x-axis ticks
-plt.yticks([]) 
-plt.gca().invert_yaxis()
-plt.text(0.5, -0.1, 'Mesh resolution sacrificed for readibility', ha='center', va='center', transform=plt.gca().transAxes)
-plt.show()
-# Plot the solution
-# plt.figure()
-# plt.tripcolor(triangulation, solution, shading='flat', cmap='gnuplot')
-# plt.colorbar(label = "Temperature")
-# plt.xlabel("$x$")
-# plt.ylabel("$y$")
-# plt.title(r'Poisson equation $\Delta u = -1$ with homogenous boundary condition '+ '\n solved on the TU Delft logo domain')
-
-# # Invert y-axis
-# plt.gca().invert_yaxis()
-# plt.savefig("delft_interview.jpg", dpi = 300)
-# plt.figure()
-# plt.tricontourf(triangulation , solution, cmap='gnuplot')
-# plt.colorbar(label='Temperature')
-# plt.title(r'Contour plot of the solution to the Poisson problem $\Delta u =-1$,' + "\n with $u=0$ on the boundary, on the TU Delft logo")
-# plt.gca().invert_yaxis()
-
-# plt.show()

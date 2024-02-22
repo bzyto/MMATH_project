@@ -30,33 +30,50 @@ class Triangle:
         # we will compute the coefficient 10 times, for 10 local approximation functions
         # lhs will be the same for all of the systems
         # we construct the lhs row by row
-        row_1 = np.array([1, self.x_0[0], self.x_0[1], self.x_0[0]**2, self.x_0[1]**2, self.x_0[0]*self.x_0[1], self.x_0[0]**3, self.x_0[1]**3, self.x_0[0]**2*self.x_0[1], self.x_0[0]*self.x_0[1]**2]) ##phi(x_0, y_0)
-        row_2 = np.array([0, 1, 0, 2*self.x_0[0], 0, self.x_0[1], 3*self.x_0[0]**2, 0, 2*self.x_0[0]*self.x_0[1], self.x_0[1]**2]) ## d/dx phi(x_0, y_0)
-        row_3 = np.array([0, 0, 1, 0, 2*self.x_0[1], self.x_0[0], 0, 3*self.x_0[1]**2, self.x_0[0]**2, 2*self.x_0[0]*self.x_0[1]]) ## d/dy phi(x_0, y_0)
-        row_4 = np.array([1, self.x_1[0], self.x_1[1], self.x_1[0]**2, self.x_1[1]**2, self.x_1[0]*self.x_1[1], self.x_1[0]**3, self.x_1[1]**3, self.x_1[0]**2*self.x_1[1], self.x_1[0]*self.x_1[1]**2]) ##phi(x_1, y_1)
-        row_5 = np.array([0, 1, 0, 2*self.x_1[0], 0, self.x_1[1], 3*self.x_1[0]**2, 0, 2*self.x_1[0]*self.x_1[1], self.x_1[1]**2])
-        row_6 = np.array([0, 0, 1, 0, 2*self.x_1[1], self.x_1[0], 0, 3*self.x_1[1]**2, self.x_1[0]**2, 2*self.x_1[0]*self.x_1[1]]) 
-        row_7 = np.array([1, self.x_2[0], self.x_2[1], self.x_2[0]**2, self.x_2[1]**2, self.x_2[0]*self.x_2[1], self.x_2[0]**3, self.x_2[1]**3, self.x_2[0]**2*self.x_2[1], self.x_2[0]*self.x_2[1]**2])
-        row_8 = np.array([0, 1, 0, 2*self.x_2[0], 0, self.x_2[1], 3*self.x_2[0]**2, 0, 2*self.x_2[0]*self.x_2[1], self.x_2[1]**2])
-        row_9 = np.array([0, 0, 1, 0, 2*self.x_2[1], self.x_2[0], 0, 3*self.x_2[1]**2, self.x_2[0]**2, 2*self.x_2[0]*self.x_2[1]])
-        row_10 = np.array([1, self.COM()[0], self.COM()[1], self.COM()[0]**2, self.COM()[1]**2, self.COM()[0]*self.COM()[1], self.COM()[0]**3, self.COM()[1]**3, self.COM()[0]**2*self.COM()[1], self.COM()[0]*self.COM()[1]**2]) #phi at com 
-        LHS = np.array([row_1, row_2, row_3, row_4, row_5, row_6, row_7, row_8, row_9, row_10])
+        # row_1 = np.array([1, self.x_0[0], self.x_0[1], self.x_0[0]**2, self.x_0[1]**2, self.x_0[0]*self.x_0[1], self.x_0[0]**3, self.x_0[1]**3, self.x_0[0]**2*self.x_0[1], self.x_0[0]*self.x_0[1]**2]) ##phi(x_0, y_0)
+        # row_2 = np.array([0, 1, 0, 2*self.x_0[0], 0, self.x_0[1], 3*self.x_0[0]**2, 0, 2*self.x_0[0]*self.x_0[1], self.x_0[1]**2]) ## d/dx phi(x_0, y_0)
+        # row_3 = np.array([0, 0, 1, 0, 2*self.x_0[1], self.x_0[0], 0, 3*self.x_0[1]**2, self.x_0[0]**2, 2*self.x_0[0]*self.x_0[1]]) ## d/dy phi(x_0, y_0)
+        # row_4 = np.array([1, self.x_1[0], self.x_1[1], self.x_1[0]**2, self.x_1[1]**2, self.x_1[0]*self.x_1[1], self.x_1[0]**3, self.x_1[1]**3, self.x_1[0]**2*self.x_1[1], self.x_1[0]*self.x_1[1]**2]) ##phi(x_1, y_1)
+        # row_5 = np.array([0, 1, 0, 2*self.x_1[0], 0, self.x_1[1], 3*self.x_1[0]**2, 0, 2*self.x_1[0]*self.x_1[1], self.x_1[1]**2])
+        # row_6 = np.array([0, 0, 1, 0, 2*self.x_1[1], self.x_1[0], 0, 3*self.x_1[1]**2, self.x_1[0]**2, 2*self.x_1[0]*self.x_1[1]]) 
+        # row_7 = np.array([1, self.x_2[0], self.x_2[1], self.x_2[0]**2, self.x_2[1]**2, self.x_2[0]*self.x_2[1], self.x_2[0]**3, self.x_2[1]**3, self.x_2[0]**2*self.x_2[1], self.x_2[0]*self.x_2[1]**2])
+        # row_8 = np.array([0, 1, 0, 2*self.x_2[0], 0, self.x_2[1], 3*self.x_2[0]**2, 0, 2*self.x_2[0]*self.x_2[1], self.x_2[1]**2])
+        # row_9 = np.array([0, 0, 1, 0, 2*self.x_2[1], self.x_2[0], 0, 3*self.x_2[1]**2, self.x_2[0]**2, 2*self.x_2[0]*self.x_2[1]])
+        # row_10 = np.array([1, self.COM()[0], self.COM()[1], self.COM()[0]**2, self.COM()[1]**2, self.COM()[0]*self.COM()[1], self.COM()[0]**3, self.COM()[1]**3, self.COM()[0]**2*self.COM()[1], self.COM()[0]*self.COM()[1]**2]) #phi at com 
+        # LHS = np.array([row_1, row_2, row_3, row_4, row_5, row_6, row_7, row_8, row_9, row_10])
+        # solution = []
+        def phi(vec):
+            x = vec[0]
+            y = vec[1]
+            return np.array([1, x, y, x**2, y**2, x*y, x**3, y**3, x**2*y, x*y**2])
+    
+        def phi_x(vec):
+            x = vec[0]
+            y = vec[1]
+            return np.array([0, 1, 0, 2*x, 0, y, 3*x**2, 0, 2*x*y, y**2])
+        
+        def phi_y(vec):
+            x = vec[0]
+            y = vec[1]
+            return np.array([0, 0, 1, 0, 2*y, x, 0, 3*y**2, x**2, 2*x*y])
+        LHS = np.array([
+            phi(self.x_0),
+            phi_x(self.x_0),
+            phi_y(self.x_0),
+            phi(self.x_1),
+            phi_x(self.x_1),
+            phi_y(self.x_1),
+            phi(self.x_2),
+            phi_x(self.x_2),
+            phi_y(self.x_2),
+            phi(self.COM())
+        ])
         solution = []
         for i in range(10):
             RHS = np.zeros(10)
             RHS[i] = 1
             solution.append(np.linalg.solve(LHS, RHS))
         return np.array(solution)
-    def TestLocalCubic(self):
-        mat = self.LocalCubic()
-        def f(coefficients, coordinates):
-            return coefficients[0]+coefficients[1]*coordinates[0]+coefficients[2]*coordinates[1]+coefficients[3]*coordinates[0]**2+coefficients[4]*coordinates[1]**2+coefficients[5]*coordinates[0]*coordinates[1]+coefficients[6]*coordinates[0]**3+coefficients[7]*coordinates[1]**3+coefficients[8]*coordinates[0]**2*coordinates[1]+coefficients[9]*coordinates[0]*coordinates[1]**2
-        def f_x(coefficients, coordinates):
-            return coefficients[1]+2*coefficients[3]*coordinates[0]+coefficients[5]*coordinates[1]+3*coefficients[6]*coordinates[0]**2+coefficients[8]*coordinates[0]*coordinates[1]
-        def f_y(coefficients, coordinates):
-            return coefficients[2]+2*coefficients[4]*coordinates[1]+coefficients[5]*coordinates[0]+3*coefficients[7]*coordinates[1]**2+coefficients[9]*coordinates[0]*coordinates[1]
-        ## check that the coefficients are correct
-        coordinates = [self.x_0, self.x_1,self.x_2, np.array(self.COM())]
 
 class Vertex:
     def __init__(self, coordinates, global_number, boundary, wb = None, val = None):
@@ -165,7 +182,6 @@ class PoissonZ3Solver:
 
             # Ensure symmetry
             ElementMatrix[k] = np.where(mask, ElementMatrix[k], ElementMatrix[k].T)
-
         return ElementMatrix
 
     def TestIntegrationLHS(self):
@@ -179,7 +195,7 @@ class PoissonZ3Solver:
         return True
             
     def ElementIntegrationRHS(self, func = lambda x,y: 1):
-        func = lambda x,y : 2*np.pi**2*np.sin(x*np.pi)*np.sin(y*np.pi)
+        #func = lambda x,y : 2*np.pi**2*np.sin(x*np.pi)*np.sin(y*np.pi)
         #func = lambda x,y: np.exp(-x**2-y**2)
         n_triangles = len(self.mesh.triangles)
         ElementVector = np.zeros((n_triangles, 10))
@@ -209,10 +225,10 @@ class PoissonZ3Solver:
                     LHS[i, :]= 0
                     LHS[i][i] = 1
                     RHS[i] = 0
-                #### a bit tricky part
-                ## we set the directional boundary conditions to 0 on the counterpart boundary
-                ## ie u_x = 0 on y = 0 y =1 
-                ## u_y = 0 on x = 0 x = 1
+                ### a bit tricky part
+                # we set the directional boundary conditions to 0 on the counterpart boundary
+                # ie u_x = 0 on y = 0 y =1 
+                # u_y = 0 on x = 0 x = 1
                 elif self.mesh.vertices[i].which_boundary == 'y':
                     if i%3 == 1:
                         LHS[i, :]= 0
@@ -238,6 +254,8 @@ class PoissonZ3Solver:
             if i%3==0:
                 soln.append(solution[i])
         soln = np.array(soln)
+        np.savetxt("Z3sol.txt", soln, fmt='%.4f')
+        print(np.max(soln))
         n = len(soln)
         soln = soln.reshape((int(np.sqrt(n)), int(np.sqrt(n))))
         ## inspired by https://matplotlib.org/stable/gallery/mplot3d/trisurf3d_2.html#sphx-glr-gallery-mplot3d-trisurf3d-2-py
@@ -353,8 +371,8 @@ import time
 def u_exact(x,y):
     return np.sin(np.pi*x)*np.sin(np.pi*y)
 def main():
-    mesh = generateMesh_UnitSquare(1/32)
-    solver = PoissonZ3Solver(mesh, 0)
-    a = solver.PlotSolution()
+    mesh = generateMesh_UnitSquare(1/8)
+    solver = PoissonZ3Solver(mesh)
+    solver.PlotSolution()
 if __name__=="__main__":
     main()
