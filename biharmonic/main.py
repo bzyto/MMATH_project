@@ -5,7 +5,6 @@ from Elements import *
 from solver import *
 from functions import *
 import cProfile
-mesh = generateMesh_UnitSquare(1/8)
-s= PoissonHCT(mesh)
-s.PlotSolution()
-
+mesh = generateMesh11square(1/16)
+sol = BiharmHCT(mesh)
+sol.PlotSolution()

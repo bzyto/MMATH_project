@@ -45,7 +45,7 @@ class PoissonHCT:
             ElementMatrix[k] = np.where(mask, ElementMatrix[k], ElementMatrix[k].T)
         return ElementMatrix
     def ElementIntegrationRHS(self, func = lambda x,y: 1):
-        func = lambda x,y : 2*np.pi**2*np.sin(x*np.pi)*np.sin(y*np.pi)
+        #func = lambda x,y : 2*np.pi**2*np.sin(x*np.pi)*np.sin(y*np.pi)
         #func = lambda x,y: np.exp(-x**2-y**2)
         n_triangles = len(self.mesh.triangles)
         ElementVector = np.zeros((n_triangles, 12))
@@ -58,15 +58,6 @@ class PoissonHCT:
                 ElementVector[n] += gaussian_quad(f, self.mesh.triangles[n].CreateMacroTriangles()[macrotriangle])
         return ElementVector
     def Assembly(self):
-        def check_elements_in_arrays(element_array, array1, array2, array3):
-            # Convert element_array and all input arrays to sets
-            element_set = set(element_array)
-            set1 = set(array1)
-            set2 = set(array2)
-            set3 = set(array3)
-
-            # Check if element_set is a subset of any of set1, set2, or set3
-            return element_set.issubset(set1) or element_set.issubset(set2) or element_set.issubset(set3)
         ElementMatrix = self.ElementIntegrationLHS()
         ElementVector = self.ElementIntegrationRHS()
         ConnectivityMatrix = self.mesh.ConnectivityMatrix()
@@ -159,7 +150,26 @@ class BiharmHCT:
         self.mesh = mesh
         self.bc = bc
     def ElementIntegrationLHS(self):
-        pass
+        n_triangles = len(self.mesh.triangles)
+        ElementMatrix = np.zeros((n_triangles, 12, 12))
+
+        for k in range(n_triangles):
+            allcoefs = np.array(self.mesh.triangles[k].LocalCubic())
+            for macrotriangle in range(3):
+                c = allcoefs[:,macrotriangle*10:macrotriangle*10+10]
+                i, j = np.indices((12, 12))
+                mask = j >= i
+                def laplace(x,y):
+                    return 2*c[:,3]+ 6*c[:,6]*x+2*c[:,8]*y+2*c[:,4]+6*c[:,7]*y+2*c[:,9]*x
+                def f(x,y):
+                    return np.outer(laplace(x,y), laplace(x,y))
+                ElementMatrix[k] += np.where(mask, gaussian_quad(f, self.mesh.triangles[k].CreateMacroTriangles()[macrotriangle]), ElementMatrix[k].T)
+            #Ensure symmetry
+            # pairs = [[0,9], [1,9], [2,9], [3, 10], [4, 10], [5,10], [6, 11], [7,11], [8,11], [9,10], [9, 11], [10,11]]
+            # for pair in pairs:
+            #     ElementMatrix[k][pair[0]][pair[1]] = 0
+            ElementMatrix[k] = np.where(mask, ElementMatrix[k], ElementMatrix[k].T)
+        return ElementMatrix
     def ElementIntegrationRHS(self, func = lambda x,y: 1):
         #func = lambda x,y : 2*np.pi**2*np.sin(x*np.pi)*np.sin(y*np.pi)
         #func = lambda x,y: np.exp(-x**2-y**2)
@@ -172,3 +182,73 @@ class BiharmHCT:
                 f = lambda x,y: func(x,y)*(c[:, 0] + c[:, 1] * x + c[:, 2] * y + c[:, 3] * x**2 + c[:, 4] * y**2 + c[:, 5] * x * y + c[:, 6] * x**3 + c[:, 7] * y**3 + c[:, 8] * x**2 * y + c[:, 9] * x * y**2)
                 ElementVector[n] += gaussian_quad(f, self.mesh.triangles[n].CreateMacroTriangles()[macrotriangle])
         return ElementVector
+    def Assembly(self):
+        ElementMatrix = self.ElementIntegrationLHS()
+        ElementVector = self.ElementIntegrationRHS()
+        ConnectivityMatrix = self.mesh.ConnectivityMatrix()
+        matrixSize = int(np.size(self.mesh.vertices))
+        LHS = np.zeros((matrixSize, matrixSize))
+        RHS = np.zeros(matrixSize)
+        Idid = np.ones(matrixSize)
+        ## loop as in https://eprints.maths.manchester.ac.uk/894/2/0-19-852868-X.pdf p.26
+        for k in range(len(self.mesh.triangles)):
+            marked = []
+            for j in range(12):
+                fix_j = 1
+                if any([j == 9, j==10, j==11]):
+                    fix_j = Idid[int(ConnectivityMatrix[k][j])]
+                for i in range(12):
+                    fix_i = 1
+                    if any([i == 9, i==10, i==11]):
+                        fix_i = Idid[int(ConnectivityMatrix[k][i])]
+                    #  if check_elements_in_arrays([int(ConnectivityMatrix[k][j]), int(ConnectivityMatrix[k][i])], edges[0], edges[1], edges[2]):
+                    LHS[int(ConnectivityMatrix[k][j])][int(ConnectivityMatrix[k][i])]+=fix_i * fix_j * ElementMatrix[k][j][i]
+                RHS[int(ConnectivityMatrix[k][j])]+=fix_j * ElementVector[k][j]
+            Idid[self.mesh.triangles[k].VertexNumbers[9:]] = -1 ##as in the mysterious matlab file
+        ## at this point, the galerkin matrix is of size n by n where n is the total number of vertices
+        ## we have enforce the boundary conditions on the system
+        for i in range(len(self.mesh.vertices)):
+            if self.mesh.vertices[i].boundary:
+                if self.mesh.vertices[i].wd == 'val':
+                    LHS[i, :]= 0
+                    LHS[i][i] = 1
+                    RHS[i] = 0
+                ### a bit tricky part
+                # we set the directional boundary conditions to 0 on the counterpart boundary
+                # ie u_x = 0 on y = 0 y =1 
+                # u_y = 0 on x = 0 x = 1
+                if self.mesh.vertices[i].wd == 'norm':
+                    LHS[i, :]= 0
+                    LHS[i][i] = 1
+                    RHS[i] = 0
+        return LHS, RHS
+    def Solve(self):
+        LHS, RHS = self.Assembly()
+        solution = sparse.linalg.spsolve(sparse.csr_matrix(LHS), RHS)##taking advantage of the sparsity of the matrix
+        return solution
+    def PlotSolution(self):
+        solution = self.Solve()
+        soln = []
+        for index in range(len(solution)):
+            if self.mesh.vertices[index].wd == 'val':
+                soln.append(solution[index])
+        soln = np.array(soln)
+
+        print(np.max(soln))
+        n = len(soln)
+        soln = soln.reshape((int(np.sqrt(n)), int(np.sqrt(n))))
+        ## inspired by https://matplotlib.org/stable/gallery/mplot3d/trisurf3d_2.html#sphx-glr-gallery-mplot3d-trisurf3d-2-py
+        x = y = np.linspace(-1, 1, int(1/self.mesh.h) +1 )
+        x, y = np.meshgrid(x, y)
+        x, y = x.flatten(), y.flatten()
+        z = soln.flatten()
+        tri = mtri.Triangulation(x, y)
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        ax.plot_trisurf(x, y, z, triangles=tri.triangles, cmap=plt.cm.Spectral_r )
+        ax.set(
+            xlabel = '$x$',
+            ylabel = '$y$',
+            zlabel = '$z$'
+        )
+        plt.show()

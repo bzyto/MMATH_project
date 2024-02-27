@@ -50,6 +50,7 @@ class Triangle:
         ### here we dont know if these vectors point inwards or outwards ie we may have to multiply by -1
         ### we deduce the sign by computing the determinant of the following matrix
         mat = np.array([[vectors[0][0], vectors[0][1], 1], [vectors[1][0], vectors[1][1], 1], [vectors[2][0], vectors[2][1], 1]])
+
         if np.linalg.det(mat)>0:
             return -vectors
         return vectors
