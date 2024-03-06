@@ -150,6 +150,10 @@ def generateMesh11square(h = 0.2):
             wb = None
             if x_grid[i][j] == -1 or x_grid[i][j] == 1 or y_grid[i][j] == -1 or y_grid[i][j] == 1:
                 boundary = True
+            if x_grid[i][j] == -1 or x_grid[i][j] == 1:
+                    wb = 'x'
+            else:
+                wb = 'y'
             if i%2 == 0 and j%2==0:
                 vertices.append(Vertex([x_grid[i][j], y_grid[i][j]], loopcounter, boundary, wd = 'val'))
                 x_vertices.append(Vertex([x_grid[i][j], y_grid[i][j]], loopcounter+1, boundary, wb, wd = 'x'))

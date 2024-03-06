@@ -5,6 +5,7 @@ from Elements import *
 from solver import *
 from functions import *
 import cProfile
-mesh = generateMesh11square(1/16)
-sol = BiharmHCT(mesh)
-sol.PlotSolution()
+import time
+mesh = generateMesh11square(1/8)
+s = BiharmHCT(mesh)
+s.Plot4eigenfunctions()
