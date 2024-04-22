@@ -250,6 +250,14 @@ class BiharmHCT:
         LHS, RHS = self.Assembly()
         solution = sparse.linalg.spsolve(sparse.csr_matrix(LHS), RHS)##taking advantage of the sparsity of the matrix
         return solution
+    def GetMaxVal(self):
+        solution = self.Solve()
+        soln=[]
+        for index in range(len(solution)):
+            if self.mesh.vertices[index].wd == 'val':
+                soln.append(solution[index])
+        soln = np.array(soln)
+        return np.max(soln)
     def PlotSolution(self):
         solution = self.Solve()
         soln = []
@@ -302,20 +310,10 @@ class BiharmHCT:
         ## we have enforce the boundary conditions on the system
         for i in range(len(self.mesh.vertices)):
             if self.mesh.vertices[i].boundary:
-                if self.mesh.vertices[i].wd == 'val':
-                    LHS[i, :]= 0
-                    LHS[i][i] = 1
-                    RHS[i,:] = 0
-                    RHS[i][i] = 1
-                ### a bit tricky part
-                # we set the directional boundary conditions to 0 on the counterpart boundary
-                # ie u_x = 0 on y = 0 y =1 
-                # u_y = 0 on x = 0 x = 1
-                if self.mesh.vertices[i].wd == 'norm':
-                    LHS[i, :]= 0
-                    LHS[i][i] = 1
-                    RHS[i,:] = 0
-                    RHS[i][i] = 1
+                LHS[i, :]= 0
+                LHS[i][i] = 1
+                RHS[i,:] = 0
+                RHS[i][i] = 1
         return LHS, RHS
     def SolveEigen(self, sigma = 80):
         LHS, RHS = self.AssemblyEigen()
@@ -395,6 +393,7 @@ class BiharmHCT:
             ax.set_ylabel('$y$')
             ax.set_zlabel(f'$z$')
             # Add bounding box
-            ax.text2D(0.05, 0.95, fr"$\lambda = {np.round(eigs[0].real, 4)}$", transform=ax.transAxes, bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.3'))
+            ax.text2D(0.05, 0.95, fr"$\lambda_{i+1} = {np.round(eigs[0].real, 4)}$", transform=ax.transAxes, bbox=dict(facecolor='white', edgecolor='white', boxstyle='round'), fontsize=16)
         plt.tight_layout()
-        plt.savefig("eigenfunctions.png", dpi = 600)
+        plt.savefig("eigenfunctions.png", dpi = 500)
+        #plt.show()

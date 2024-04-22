@@ -141,7 +141,7 @@ class Mesh:
         for index, value in enumerate(solution.flatten()):
             self.vertices[index].val = value
 class PoissonSolver:
-    def __init__(self, mesh, bc):
+    def __init__(self, mesh, bc=0):
         self.mesh = mesh
         self.bc = bc
     def ElementIntegrationLHS(self):
@@ -162,8 +162,10 @@ class PoissonSolver:
         for k in range(n_triangles):
             c = self.mesh.triangles[k].LocalLinear()
             ### non steady f
-            f = lambda x, y: (c[:, 0] + c[:, 1]*x + c[:, 2]*y)*2*np.pi**2*np.sin(np.pi*x)*np.sin(np.pi*y)
-            WRHSVector[:, k] = gaussian_quad(f, self.mesh.triangles[k])
+            def forcing(x,y):
+                return 1
+            f = lambda x, y: (c[:, 0] + c[:, 1]*x + c[:, 2]*y)*forcing(x,y)
+            WRHSVector[:, k] += gaussian_quad(f, self.mesh.triangles[k])
         return WRHSVector
     def Assembly(self):
         ElementMatrix = self.ElementIntegrationLHS()
@@ -251,9 +253,9 @@ class PoissonSolver:
         ax = fig.add_subplot(projection='3d')
         ax.plot_trisurf(x, y, z, triangles=tri.triangles, cmap=plt.cm.Spectral_r )
         ax.set(
-            xlabel = 'x',
-            ylabel = 'y',
-            zlabel = 'z'
+            xlabel = '$x$',
+            ylabel = '$y$',
+            zlabel = '$z$'
         )
         ax.set_title(f'Poisson equation solution with $h = {self.mesh.h}$')
         plt.show()
@@ -365,14 +367,8 @@ def matrix_to_binary_image(matrix):
 def u_exact(x,y):
     return np.sin(np.pi*x)*np.sin(np.pi*y)
 def main():
-    for h in [1/2, 1/4, 1/8, 1/16, 1/32, 1/64, 1/128, 1/256]:
-        mesh = generateMesh_UnitSquare(h)
-        solution = PoissonSolver(mesh, 0)
-        a = solution.solve()
-        mesh.MapSolution(a)
-        error_arr = np.array([])
-        for vertex in mesh.vertices[::3]:
-            error_arr= np.append(error_arr, abs(vertex.val-u_exact(vertex.coordinates[0],vertex.coordinates[1])))
-        print(h, np.max(error_arr))
+    mesh = generateMesh_UnitSquare(1/10)
+    solution = PoissonSolver(mesh)
+    solution.plot_triangle()
 if __name__ == "__main__":
     main()

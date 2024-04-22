@@ -228,3 +228,13 @@ def generateMesh11square(h = 0.2):
     all_but_coms.sort(key = lambda x: x.global_number)
     triangles.sort(key = lambda x: x.GlobalNumber)
     return Mesh(all_but_coms, triangles, h, nomids)
+def PoissonExact(n = 1000, x = 1/2, y = 1/2):
+    res = 0
+    odd_pairs = [(i, j) for i in range(1, n, 2) for j in range(i, n, 2)]
+    #print(odd_pairs)
+    for i, j in odd_pairs:
+        adder = 16/(np.pi**4 * i*j * (i**2+j**2)) * np.sin(i*np.pi*x) * np.sin(j*np.pi*y)
+        if i!=j:
+            adder+=16/(np.pi**4* i*j * (i**2+j**2)) * np.sin(j*np.pi*x) * np.sin(i*np.pi*y)
+        res += adder
+    return res
